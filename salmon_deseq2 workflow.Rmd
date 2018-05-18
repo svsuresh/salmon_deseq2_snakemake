@@ -1,0 +1,214 @@
+---
+title: "Salmon-DESEQ2 workflow"
+output:
+  html_document:
+    df_print: paged
+---
+```{bash}
+$ sed 's/),\strans.*//g' headers.txt | sed 's/),\s.*RNA//g'  | awk -v OFS="\t" -F " " '{print $1,$NF}' | awk '{gsub("[>,(,)]","",$0)}1' > GRCh38_t2g.tsv
+```
+
+```{r}
+setwd("~/Desktop/salmon_analysis/")
+library(tximport)
+library(readr)
+library(stringr)
+library(assertr)
+suppressMessages(library(DESeq2))
+suppressMessages(library(ggplot2))
+suppressMessages(library(wasabi))
+suppressMessages(library(apeglm))
+suppressMessages(library(sleuth))
+suppressMessages(library(pheatmap))
+suppressMessages(library(regionReport))
+```
+
+```{r}
+samples=data.frame(samples=col_concat(str_split_fixed(list.files("salmon"),"_",5)[,2:3], sep = "_"), condition=str_split_fixed(list.files("salmon"),"_",5)[,2])
+row.names(samples)=samples[,1]
+```
+## Deseq2 workflow
+```{r}
+files=file.path("salmon",list.files("salmon"),"quant.sf")
+```
+
+```{r}
+tx2gene=read.csv("reference/GRCh38_t2g.tsv", sep = "\t",stringsAsFactors = F, header=F)
+head(tx2gene)
+```
+
+```{r}
+salmon_data <- tximport(files, type="salmon", tx2gene=tx2gene)
+```
+
+```{r}
+names(salmon_data)
+```
+
+```{r}
+ddsTxi <- DESeqDataSetFromTximport(salmon_data,
+                                   colData = samples ,
+                                   design = ~ condition)
+```
+
+```{r}
+keep <- rowSums(counts(ddsTxi)) >= 10
+dds <- ddsTxi[keep,]
+```
+
+```{r}
+dds$condition <- relevel(dds$condition, ref = "normal")
+dds$condition
+```
+
+```{r}
+ddds <- DESeq(dds)
+```
+
+```{r}
+head(coef(ddds),10)
+```
+
+```{r}
+res <- results(ddds, coef="condition_tumor_vs_normal")
+```
+
+```{r}
+resOrdered <- res[order(res$padj),]
+```
+
+```{r}
+reslfc=lfcShrink(ddds, coef="condition_tumor_vs_normal", type="apeglm")
+```
+
+```{r}
+resultsNames(ddds)
+plotCounts(ddds, gene=which.min(res$log2FoldChange), intgroup="condition")
+```
+
+```{r}
+plotCounts(ddds, gene=which.min(res$padj), intgroup="condition")
+```
+
+```{r}
+plotPCA(rlog(ddds), intgroup="condition")+theme_bw()
+```
+
+## heatmap
+```{r}
+select=row.names(res[order(-res$log2FoldChange),])[1:20]
+cols=colorRampPalette( c("green","yellow","red"))(255)
+pheatmap(assay(rlog(ddds))[select,], col=cols)
+```
+```{r}
+sampleDists <- as.matrix(dist(t(assay(rlog(ddds)))))
+sampleDists
+cols=colorRampPalette( c("green","yellow","red"))(255)
+pheatmap(sampleDists, col=cols)
+```
+
+
+
+mean SD plot
+```{r}
+library(vsn)
+meanSdPlot(assay(rlog(ddds)))
+```
+
+
+```{r}
+plotMA(res)
+```
+
+```{r}
+dir.create('salmon_deseq2_report', showWarnings = FALSE, recursive = TRUE)
+```
+## Generate report in pdf
+```{r}
+# report <- DESeq2Report(ddds, project = 'Salmon-DESEQ2 workflow',
+#     intgroup = c('condition'), outdir = 'salmon_deseq2_report',
+#     output = 'index', theme = theme_bw(), browse = F,device = "pdf", output_format = 'pdf_document')
+```
+## Generate report in html
+```{r}
+#report <- DESeq2Report(ddds, project = 'Salmon-DESEQ2 workflow',
+#    intgroup = c('condition'), outdir = 'salmon_deseq2_report',
+#    output = 'index', theme = theme_bw(), browse = F)
+```
+
+## Write results to Hard disk
+```{r}
+write.csv(as.data.frame(resOrdered),file="condition_treated_results.csv")
+```
+## Save the workspace
+```{r}
+# save.image("salmon_results.Rdata")
+```
+## Load the workspace
+```{r}
+# load("ddds.Rdata")
+```
+
+## Wasabi and Sleuth workflow
+```{r}
+list.files("salmon")
+getwd()
+```
+
+```{r}
+sfdirs <- file.path("salmon", c(list.files("salmon")))
+sfdirs
+```
+
+```{r}
+prepare_fish_for_sleuth(sfdirs)
+```
+
+
+```{r}
+list.files("salmon")
+sfdirs
+```
+
+```{r}
+sfdata=data.frame(sample=list.files("salmon"), path=sfdirs, condition=samples$condition, stringsAsFactors = F)
+sfdata
+```
+
+```{r}
+design = ~condition
+```
+
+```{r}
+#head (tx2gene)
+names(tx2gene)=c("target_id","HGNC")
+so <- sleuth_prep(sfdata, design, target_mapping = tx2gene,num_cores = 1) 
+```
+```{r}
+so <- sleuth_fit(so)
+```
+```{r}
+models(so)
+```
+```{r}
+oe <- sleuth_wt(so, 'conditiontumor')
+```
+
+```{r}
+sleuth_results_oe=sleuth_results(oe, 'conditiontumor', show_all = TRUE)
+head(sleuth_results_oe)
+```
+
+```{r}
+sloe=sleuth_results_oe[complete.cases(sleuth_results_oe),]
+```
+
+```{r}
+mer_sloe=merge(sloe, tx2gene, all.x=T)
+mer_sloe[order(mer_sloe$qval),]
+head(mer_sloe)
+```
+
+```{r}
+# sleuth_live(oe)
+```
