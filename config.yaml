@@ -1,2 +1,1 @@
-fasta: "reference/chr22_ucsc_grch38_refseq_txn.fa"
-
+fa: "reference/chr22_ucsc_grch38_refseq_dedup.fa.gz"
