@@ -4,11 +4,11 @@ rule salmon_quant:
 		R2 = rules.cutadapt.output.R2,
 		index=rules.index.output.directory
 	output:
-		B1 = "salmon/{type}_{sample}_rep{rep}_cutadapt_salmon_quant"
+		B1 = "results/salmon/{type}_{sample}_rep{rep}_cutadapt_salmon_quant"
 	version:
 		shell("salmon --version")
 	log:
-		'logs/salmon/{type}_{sample}_rep{rep}.salmon.log'
+		'results/logs/salmon/{type}_{sample}_rep{rep}.salmon.log'
 	message:
 		"..wait...aligning and quantifying sequence files....."
 	priority: 85

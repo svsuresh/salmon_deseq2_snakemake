@@ -3,12 +3,12 @@ rule cutadapt:
 		R1 = "raw_data/{type}_{sample}_rep{rep}_r1.fastq.gz",
 		R2 = "raw_data/{type}_{sample}_rep{rep}_r2.fastq.gz"
 	output:
-		R1 = "cutadapt/{type}_{sample}_rep{rep}_cutadapt_r1.fastq.gz",
-		R2 = "cutadapt/{type}_{sample}_rep{rep}_cutadapt_r2.fastq.gz"	
+		R1 = "results/cutadapt/{type}_{sample}_rep{rep}_cutadapt_r1.fastq.gz",
+		R2 = "results/cutadapt/{type}_{sample}_rep{rep}_cutadapt_r2.fastq.gz"	
 	version:
 		shell("cutadapt --version")
 	log: 
-		'logs/cutadapt/{type}_{sample}_rep{rep}.cutadapt.log'
+		'results/logs/cutadapt/{type}_{sample}_rep{rep}.cutadapt.log'
 	message:
 		"..wait...cutting sequence files....."
 	priority:95
